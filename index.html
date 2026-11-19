@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Royal Casino — Telegram Mini App</title>
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Montserrat -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --accent-gold: #fbbf24;
+            --accent-purple: #a855f7;
+            --accent-neon: #38bdf8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: #f8fafc;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .font-display {
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* Неоновые свечения и градиенты */
+        .neon-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .gold-glow {
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.35);
+        }
+
+        .purple-glow {
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.4);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+            transition: all 0.15s ease;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.96);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(0.7);
+        }
+
+        .btn-purple {
+            background: linear-gradient(135deg, #9333ea 0%, #6b21a8 100%);
+            box-shadow: 0 4px 15px rgba(147, 51, 234, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+            transition: all 0.15s ease;
+        }
+
+        .btn-purple:active {
+            transform: scale(0.96);
+        }
+
+        /* Анимация слотов */
+        .slot-window {
+            background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.8), inset 0 -10px 20px rgba(0,0,0,0.8);
+        }
+
+        @keyframes slotBlur {
+            0% { transform: translateY(-10px); filter: blur(2px); }
+            50% { transform: translateY(10px); filter: blur(3px); }
+            100% { transform: translateY(-10px); filter: blur(2px); }
+        }
+
+        .spinning-reel {
+            animation: slotBlur 0.12s infinite linear;
+        }
+
+        @keyframes winPulse {
+            0%, 100% { transform: scale(1); border-color: #fbbf24; box-shadow: 0 0 20px rgba(251, 191, 36, 0.6); }
+            50% { transform: scale(1.04); border-color: #a855f7; box-shadow: 0 0 35px rgba(168, 85, 247, 0.8); }
+        }
+
+        .win-highlight {
+            animation: winPulse 0.6s ease-in-out infinite;
+        }
+
+        /* Анимация ячеек в Минах */
+        .mine-cell {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s;
+        }
+        .mine-cell:active:not(:disabled) {
+            transform: scale(0.9);
+        }
+
+        /* Всплывающее уведомление */
+        @keyframes slideDown {
+            from { transform: translate(-50%, -100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .toast-enter {
+            animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Скрытие скроллбара */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between pb-24">
+
+    <!-- Всплывающее уведомление (вместо alert) -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none w-11/12 max-w-sm"></div>
+
+    <!-- Верхняя панель (Header) -->
+    <header class="sticky top-0 z-30 bg-[#0f172a]/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <!-- Профиль пользователя -->
+            <div class="flex items-center space-x-2.5">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-amber-500 p-0.5 shadow-lg">
+                    <div class="w-full h-full bg-slate-900 rounded-full flex items-center justify-center font-display font-bold text-amber-400 text-sm" id="user-avatar">
+                        👑
+                    </div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400 font-medium">Добро пожаловать,</div>
+                    <div class="text-sm font-bold text-white truncate max-w-[120px]" id="user-name">Игрок</div>
+                </div>
+            </div>
+
+            <!-- Баланс и кнопка пополнения -->
+            <div class="flex items-center space-x-2">
+                <div class="bg-slate-900/90 border border-amber-500/40 rounded-2xl px-3.5 py-1.5 flex items-center space-x-2 shadow-inner">
+                    <span class="text-base">🪙</span>
+                    <span id="balance-display" class="font-display font-extrabold text-amber-400 text-base tracking-wide">1000</span>
+                </div>
+                <button id="bonus-btn" onclick="claimFreeCoins()" class="hidden animate-bounce bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg shadow-emerald-500/30 active:scale-95 transition">
+                    +500 🎁
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основной контент (Вкладки игр) -->
+    <main class="flex-1 max-w-md w-full mx-auto px-4 pt-4">
+
+        <!-- ==================== ВКЛАДКА 1: СЛОТЫ ==================== -->
+        <section id="tab-slots" class="space-y-4">
+            <div class="text-center">
+                <h1 class="font-display text-2xl font-black bg-gradient-to-r from-amber-300 via-yellow-400 to-purple-400 bg-clip-text text-transparent">
+                    NEON SLOTS 777
+                </h1>
+                <p class="text-xs text-slate-400 mt-0.5">Собери 3 одинаковых символа для джекпота!</p>
+            </div>
+
+            <!-- Корпус слот-машины -->
+            <div id="slot-machine-box" class="neon-card rounded-3xl p-5 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-70"></div>
+                
+                <!-- Окна барабанов -->
+                <div class="slot-window rounded-2xl p-3 border-2 border-slate-700/80 relative">
+                    <!-- Линия выигрыша -->
+                    <div class="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-0.5 bg-amber-400/30 pointer-events-none z-10"></div>
+                    
+                    <div class="grid grid-cols-3 gap-2.5">
+                        <div id="reel-0" class="h-28 bg-slate-900/90 rounded-xl border border-slate-700/60 flex items-center justify-center text-5xl shadow-inner select-none">
+                            💎
+                        </div>
+                        <div id="reel-1" class="h-28 bg-slate-900/90 rounded-xl border border-slate-700/60 flex items-center justify-center text-5xl shadow-inner select-none">
+                            7️⃣
+                        </div>
+                        <div id="reel-2" class="h-28 bg-slate-900/90 rounded-xl border border-slate-700/60 flex items-center justify-center text-5xl shadow-inner select-none">
+                            💎
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статус выигрыша -->
+                <div id="slot-status" class="mt-3 text-center h-6 flex items-center justify-center">
+                    <span class="text-xs font-semibold text-slate-400">Выберите ставку и нажмите КРУТИТЬ</span>
+                </div>
+
+                <!-- Выбор ставки -->
+                <div class="mt-3">
+                    <div class="flex justify-between text-xs text-slate-400 mb-1.5 px-1">
+                        <span>Размер ставки:</span>
+                        <span class="text-amber-400 font-bold" id="slot-bet-label">50 монет</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2" id="slot-bets">
+                        <button onclick="setSlotBet(10)" class="slot-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">10</button>
+                        <button onclick="setSlotBet(50)" class="slot-bet-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400 shadow-md transition">50</button>
+                        <button onclick="setSlotBet(100)" class="slot-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">100</button>
+                        <button onclick="setSlotBet(250)" class="slot-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">250</button>
+                    </div>
+                </div>
+
+                <!-- Кнопка вращения -->
+                <button id="spin-slots-btn" onclick="spinSlots()" class="btn-primary w-full mt-4 py-4 rounded-2xl font-display font-black text-slate-950 text-lg tracking-wider uppercase flex items-center justify-center space-x-2">
+                    <span>🎰 КРУТИТЬ</span>
+                </button>
+            </div>
+
+            <!-- Таблица выплат -->
+            <div class="neon-card rounded-2xl p-3.5">
+                <div class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>Таблица выплат</span>
+                    <span class="text-[10px] text-slate-400 font-normal">2 совпадения = x1.5</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-xs">
+                    <div class="bg-slate-900/70 rounded-xl p-2 flex items-center justify-between border border-slate-800">
+                        <span>7️⃣7️⃣7️⃣</span><span class="font-bold text-amber-400">x15</span>
+                    </div>
+                    <div class="bg-slate-900/70 rounded-xl p-2 flex items-center justify-between border border-slate-800">
+                        <span>💎💎💎</span><span class="font-bold text-purple-400">x10</span>
+                    </div>
+                    <div class="bg-slate-900/70 rounded-xl p-2 flex items-center justify-between border border-slate-800">
+                        <span>🔔🔔🔔</span><span class="font-bold text-sky-400">x7</span>
+                    </div>
+                    <div class="bg-slate-900/70 rounded-xl p-2 flex items-center justify-between border border-slate-800">
+                        <span>🍀🍀🍀</span><span class="font-bold text-emerald-400">x5</span>
+                    </div>
+                    <div class="bg-slate-900/70 rounded-xl p-2 flex items-center justify-between border border-slate-800">
+                        <span>🍒🍒🍒</span><span class="font-bold text-rose-400">x4</span>
+                    </div>
+                    <div class="bg-slate-900/70 rounded-xl p-2 flex items-center justify-between border border-slate-800">
+                        <span>🍋🍋🍋</span><span class="font-bold text-yellow-300">x3</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== ВКЛАДКА 2: КОЛЕСО ФОРТУНЫ ==================== -->
+        <section id="tab-wheel" class="hidden space-y-4">
+            <div class="text-center">
+                <h1 class="font-display text-2xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">
+                    КОЛЕСО ФОРТУНЫ
+                </h1>
+                <p class="text-xs text-slate-400 mt-0.5">Испытай удачу и умножь ставку до x10!</p>
+            </div>
+
+            <div class="neon-card rounded-3xl p-4 flex flex-col items-center relative">
+                <!-- Указатель сверху колеса -->
+                <div class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center my-1">
+                    <div class="absolute -top-2 left-1/2 -translate-x-1/2 z-20 drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)]">
+                        <svg width="28" height="32" viewBox="0 0 28 32" fill="none">
+                            <path d="M14 32L2 6C2 2.68629 4.68629 0 8 0H20C23.3137 0 26 2.68629 26 6L14 32Z" fill="#fbbf24"/>
+                            <circle cx="14" cy="8" r="3" fill="#0f172a"/>
+                        </svg>
+                    </div>
+                    <!-- Canvas Колеса -->
+                    <canvas id="wheel-canvas" class="w-full h-full rounded-full shadow-[0_0_30px_rgba(168,85,247,0.35)]"></canvas>
+                    <!-- Центральная кнопка-хаб -->
+                    <div class="absolute w-12 h-12 rounded-full bg-slate-900 border-4 border-amber-400 shadow-lg flex items-center justify-center z-10">
+                        <span class="text-sm">⚡</span>
+                    </div>
+                </div>
+
+                <!-- Выбор ставки Колеса -->
+                <div class="w-full mt-3">
+                    <div class="flex justify-between text-xs text-slate-400 mb-1.5 px-1">
+                        <span>Ставка на вращение:</span>
+                        <span class="text-amber-400 font-bold" id="wheel-bet-label">50 монет</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2" id="wheel-bets">
+                        <button onclick="setWheelBet(10)" class="wheel-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">10</button>
+                        <button onclick="setWheelBet(50)" class="wheel-bet-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400 shadow-md transition">50</button>
+                        <button onclick="setWheelBet(100)" class="wheel-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">100</button>
+                        <button onclick="setWheelBet(250)" class="wheel-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition">250</button>
+                    </div>
+                </div>
+
+                <!-- Кнопка запуска колеса -->
+                <button id="spin-wheel-btn" onclick="spinWheel()" class="btn-purple w-full mt-4 py-4 rounded-2xl font-display font-black text-white text-lg tracking-wider uppercase flex items-center justify-center space-x-2">
+                    <span>🎡 ЗАПУСТИТЬ КОЛЕСО</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ==================== ВКЛАДКА 3: МИНЫ (MINES) ==================== -->
+        <section id="tab-mines" class="hidden space-y-4">
+            <div class="text-center">
+                <h1 class="font-display text-2xl font-black bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">
+                    КРИПТО МИНЫ
+                </h1>
+                <p class="text-xs text-slate-400 mt-0.5">Открывай кристаллы, избегай бомб, забирай куш!</p>
+            </div>
+
+            <div class="neon-card rounded-3xl p-4">
+                <!-- Инфо-панель текущего раунда -->
+                <div class="flex items-center justify-between bg-slate-900/90 rounded-2xl px-4 py-2.5 border border-slate-800 mb-3">
+                    <div>
+                        <div class="text-[11px] text-slate-400">Текущий множитель</div>
+                        <div id="mines-multiplier" class="font-display font-extrabold text-lg text-purple-400">x1.00</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[11px] text-slate-400">Следующий шаг</div>
+                        <div id="mines-next-mult" class="font-display font-bold text-sm text-emerald-400">x1.12</div>
+                    </div>
+                </div>
+
+                <!-- Игровое поле 5x5 -->
+                <div id="mines-grid" class="grid grid-cols-5 gap-2 aspect-square w-full max-w-[310px] mx-auto my-2">
+                    <!-- Ячейки генерируются через JS -->
+                </div>
+
+                <!-- Настройки до начала игры -->
+                <div id="mines-controls" class="mt-3 space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Выбор мин -->
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Количество мин:</label>
+                            <div class="grid grid-cols-3 gap-1.5" id="mines-count-btns">
+                                <button onclick="setMinesCount(3)" class="mine-cnt-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400">3 💣</button>
+                                <button onclick="setMinesCount(5)" class="mine-cnt-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">5 💣</button>
+                                <button onclick="setMinesCount(10)" class="mine-cnt-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">10 💣</button>
+                            </div>
+                        </div>
+                        <!-- Выбор ставки -->
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Ставка:</label>
+                            <div class="grid grid-cols-3 gap-1.5" id="mines-bet-btns">
+                                <button onclick="setMinesBet(20)" class="mine-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">20</button>
+                                <button onclick="setMinesBet(50)" class="mine-bet-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400">50</button>
+                                <button onclick="setMinesBet(100)" class="mine-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">100</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="mines-start-btn" onclick="startMinesGame()" class="btn-primary w-full py-3.5 rounded-2xl font-display font-black text-slate-950 text-base uppercase tracking-wider">
+                        💣 НАЧАТЬ ИГРУ
+                    </button>
+                </div>
+
+                <!-- Кнопка забрать выигрыш (активна во время игры) -->
+                <div id="mines-active-controls" class="hidden mt-3">
+                    <button id="mines-cashout-btn" onclick="cashoutMines()" disabled class="w-full py-3.5 rounded-2xl font-display font-black text-slate-950 text-base uppercase tracking-wider bg-gradient-to-r from-emerald-400 to-green-500 shadow-lg shadow-emerald-500/30 disabled:opacity-50 transition active:scale-95">
+                        💰 ЗАБРАТЬ <span id="mines-cashout-amount">0</span> 🪙
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== ВКЛАДКА 4: ИСТОРИЯ / ПРОФИЛЬ ==================== -->
+        <section id="tab-history" class="hidden space-y-4">
+            <div class="text-center">
+                <h1 class="font-display text-2xl font-black text-white">ИСТОРИЯ ИГР</h1>
+                <p class="text-xs text-slate-400 mt-0.5">Ваши последние ставки и выигрыши</p>
+            </div>
+
+            <!-- Статистика -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="neon-card rounded-2xl p-3.5 text-center">
+                    <div class="text-xs text-slate-400">Всего игр</div>
+                    <div id="stat-total-games" class="font-display font-extrabold text-xl text-white mt-1">0</div>
+                </div>
+                <div class="neon-card rounded-2xl p-3.5 text-center">
+                    <div class="text-xs text-slate-400">Крупнейший выигрыш</div>
+                    <div id="stat-max-win" class="font-display font-extrabold text-xl text-amber-400 mt-1">0 🪙</div>
+                </div>
+            </div>
+
+            <!-- Список последних операций -->
+            <div class="neon-card rounded-3xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Последние события</span>
+                    <button onclick="resetProgress()" class="text-[11px] text-rose-400 hover:underline">Сбросить прогресс</button>
+                </div>
+                <div id="history-list" class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                    <div class="text-center text-xs text-slate-500 py-8">История пока пуста. Сделайте первую ставку!</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Нижнее навигационное меню (Telegram Mini App Bottom Bar) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-[#0f172a]/95 backdrop-blur-lg border-t border-slate-800/90 px-2 py-2 pb-safe">
+        <div class="max-w-md mx-auto grid grid-cols-4 gap-1">
+            <button onclick="switchTab('slots')" id="nav-slots" class="nav-item flex flex-col items-center justify-center py-1.5 rounded-2xl text-amber-400 bg-slate-800/80 transition">
+                <span class="text-xl mb-0.5">🎰</span>
+                <span class="text-[11px] font-bold">Слоты</span>
+            </button>
+            <button onclick="switchTab('wheel')" id="nav-wheel" class="nav-item flex flex-col items-center justify-center py-1.5 rounded-2xl text-slate-400 hover:text-slate-200 transition">
+                <span class="text-xl mb-0.5">🎡</span>
+                <span class="text-[11px] font-semibold">Колесо</span>
+            </button>
+            <button onclick="switchTab('mines')" id="nav-mines" class="nav-item flex flex-col items-center justify-center py-1.5 rounded-2xl text-slate-400 hover:text-slate-200 transition">
+                <span class="text-xl mb-0.5">💣</span>
+                <span class="text-[11px] font-semibold">Мины</span>
+            </button>
+            <button onclick="switchTab('history')" id="nav-history" class="nav-item flex flex-col items-center justify-center py-1.5 rounded-2xl text-slate-400 hover:text-slate-200 transition">
+                <span class="text-xl mb-0.5">📜</span>
+                <span class="text-[11px] font-semibold">История</span>
+            </button>
+        </div>
+    </nav>
+
+    <script>
+        // ==================== 1. TELEGRAM WEB APP ИНИЦИАЛИЗАЦИЯ ====================
+        const tg = window.Telegram?.WebApp;
+
+        function initTelegram() {
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                // Настройка цветов шапки Telegram под тему казино
+                try {
+                    tg.setHeaderColor('#0f172a');
+                    tg.setBackgroundColor('#0f172a');
+                } catch (e) {}
+
+                const user = tg.initDataUnsafe?.user;
+                if (user) {
+                    const displayName = user.first_name + (user.last_name ? ` ${user.last_name}` : '');
+                    document.getElementById('user-name').textContent = displayName;
+                    document.getElementById('user-avatar').textContent = user.first_name.charAt(0).toUpperCase();
+                }
+            }
+        }
+
+        // Обертка для тактильной вибрации Telegram
+        function haptic(type = 'light') {
+            if (!tg?.HapticFeedback) return;
+            try {
+                if (['light', 'medium', 'heavy', 'rigid', 'soft'].includes(type)) {
+                    tg.HapticFeedback.impactOccurred(type);
+                } else if (['error', 'success', 'warning'].includes(type)) {
+                    tg.HapticFeedback.notificationOccurred(type);
+                } else if (type === 'selection') {
+                    tg.HapticFeedback.selectionChanged();
+                }
+            } catch (e) {}
+        }
+
+        // ==================== 2. УПРАВЛЕНИЕ БАЛАНСОМ И ИСТОРИЕЙ ====================
+        const STORAGE_KEY = 'neon_royal_casino_v1';
+
+        let appState = {
+            balance: 1000,
+            totalGames: 0,
+            maxWin: 0,
+            history: []
+        };
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    appState = { ...appState, ...JSON.parse(saved) };
+                }
+            } catch (e) {
+                console.error('Ошибка чтения localStorage:', e);
+            }
+            updateBalanceUI();
+            renderHistory();
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            } catch (e) {
+                console.error('Ошибка сохранения localStorage:', e);
+            }
+        }
+
+        function updateBalanceUI() {
+            const balEl = document.getElementById('balance-display');
+            balEl.textContent = Math.floor(appState.balance).toLocaleString('ru-RU');
+
+            // Показываем кнопку бонуса, если баланс < 50
+            const bonusBtn = document.getElementById('bonus-btn');
+            if (appState.balance < 50) {
+                bonusBtn.classList.remove('hidden');
+            } else {
+                bonusBtn.classList.add('hidden');
+            }
+        }
+
+        function changeBalance(delta) {
+            appState.balance = Math.max(0, Math.round(appState.balance + delta));
+            updateBalanceUI();
+            saveState();
+        }
+
+        function claimFreeCoins() {
+            if (appState.balance >= 50) return;
+            haptic('success');
+            changeBalance(500);
+            addHistory('Бонус', 0, 500, true);
+            showToast('🎁 Начислено +500 бесплатных монет!', 'success');
+        }
+
+        function addHistory(gameName, bet, payout, isWin) {
+            appState.totalGames += 1;
+            if (isWin && payout > appState.maxWin) {
+                appState.maxWin = payout;
+            }
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+            appState.history.unshift({
+                game: gameName,
+                bet: bet,
+                payout: payout,
+                isWin: isWin,
+                time: timeStr
+            });
+
+            if (appState.history.length > 30) {
+                appState.history.pop();
+            }
+            saveState();
+            renderHistory();
+        }
+
+        function renderHistory() {
+            document.getElementById('stat-total-games').textContent = appState.totalGames;
+            document.getElementById('stat-max-win').textContent = `${appState.maxWin} 🪙`;
+
+            const listEl = document.getElementById('history-list');
+            if (appState.history.length === 0) {
+                listEl.innerHTML = `<div class="text-center text-xs text-slate-500 py-8">История пока пуста. Сделайте первую ставку!</div>`;
+                return;
+            }
+
+            listEl.innerHTML = appState.history.map(item => `
+                <div class="flex items-center justify-between bg-slate-900/80 border border-slate-800/80 rounded-2xl px-3.5 py-2.5">
+                    <div>
+                        <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                            <span>${item.game}</span>
+                            <span class="text-[10px] font-normal text-slate-500">${item.time}</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">
+                            ${item.bet > 0 ? `Ставка: ${item.bet} 🪙` : 'Пополнение баланса'}
+                        </div>
+                    </div>
+                    <div class="font-display font-extrabold text-sm ${item.isWin ? 'text-emerald-400' : 'text-rose-400'}">
+                        ${item.isWin ? `+${item.payout}` : `-${item.bet}`} 🪙
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function resetProgress() {
+            haptic('warning');
+            appState = { balance: 1000, totalGames: 0, maxWin: 0, history: [] };
+            saveState();
+            updateBalanceUI();
+            renderHistory();
+            showToast('Баланс сброшен до 1000 монет', 'info');
+        }
+
+        // Красивое всплывающее уведомление (замена alert)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let colors = 'bg-slate-800 border-purple-500/60 text-white';
+            if (type === 'success') colors = 'bg-emerald-950/95 border-emerald-400 text-emerald-200 shadow-lg shadow-emerald-900/50';
+            if (type === 'error') colors = 'bg-rose-950/95 border-rose-500 text-rose-200 shadow-lg shadow-rose-900/50';
+
+            toast.className = `toast-enter ${colors} border px-4 py-3 rounded-2xl text-xs font-bold text-center backdrop-blur-md mb-2`;
+            toast.textContent = message;
+
+            container.innerHTML = '';
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+
+        // ==================== 3. НАВИГАЦИЯ ПО ВКЛАДКАМ ====================
+        function switchTab(tabName) {
+            if (isSlotSpinning || isWheelSpinning) return;
+            haptic('selection');
+
+            const tabs = ['slots', 'wheel', 'mines', 'history'];
+            tabs.forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                const navBtn = document.getElementById(`nav-${t}`);
+                navBtn.classList.remove('text-amber-400', 'bg-slate-800/80');
+                navBtn.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeNav = document.getElementById(`nav-${tabName}`);
+            activeNav.classList.remove('text-slate-400');
+            activeNav.classList.add('text-amber-400', 'bg-slate-800/80');
+
+            if (tabName === 'wheel') {
+                drawWheel();
+            }
+        }
+
+        // ==================== 4. ИГРА 1: СЛОТ-МАШИНА (SLOTS) ====================
+        const SLOT_SYMBOLS = [
+            { icon: '7️⃣', mult: 15, weight: 1 },
+            { icon: '💎', mult: 10, weight: 2 },
+            { icon: '🔔', mult: 7,  weight: 3 },
+            { icon: '🍀', mult: 5,  weight: 4 },
+            { icon: '🍒', mult: 4,  weight: 5 },
+            { icon: '🍋', mult: 3,  weight: 6 }
+        ];
+
+        let currentSlotBet = 50;
+        let isSlotSpinning = false;
+
+        function setSlotBet(amount) {
+            if (isSlotSpinning) return;
+            haptic('selection');
+            currentSlotBet = amount;
+            document.getElementById('slot-bet-label').textContent = `${amount} монет`;
+
+            document.querySelectorAll('.slot-bet-btn').forEach(btn => {
+                if (parseInt(btn.textContent) === amount) {
+                    btn.className = 'slot-bet-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400 shadow-md transition';
+                } else {
+                    btn.className = 'slot-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition';
+                }
+            });
+        }
+
+        function getRandomSlotSymbol() {
+            const pool = [];
+            SLOT_SYMBOLS.forEach(s => {
+                for (let i = 0; i < s.weight; i++) pool.push(s);
+            });
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        function spinSlots() {
+            if (isSlotSpinning) return;
+            if (appState.balance < currentSlotBet) {
+                haptic('error');
+                showToast('Недостаточно монет для ставки!', 'error');
+                return;
+            }
+
+            isSlotSpinning = true;
+            haptic('medium');
+            changeBalance(-currentSlotBet);
+
+            const spinBtn = document.getElementById('spin-slots-btn');
+            const machineBox = document.getElementById('slot-machine-box');
+            const statusEl = document.getElementById('slot-status');
+
+            spinBtn.disabled = true;
+            machineBox.classList.remove('win-highlight');
+            statusEl.innerHTML = `<span class="text-xs font-bold text-amber-400 animate-pulse">Барабаны вращаются...</span>`;
+
+            const reels = [
+                document.getElementById('reel-0'),
+                document.getElementById('reel-1'),
+                document.getElementById('reel-2')
+            ];
+
+            // Запускаем анимацию прокрутки
+            const intervals = reels.map((reel, idx) => {
+                reel.classList.add('spinning-reel');
+                return setInterval(() => {
+                    const randSym = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)].icon;
+                    reel.textContent = randSym;
+                }, 70);
+            });
+
+            // Генерируем итоговый результат
+            const results = [getRandomSlotSymbol(), getRandomSlotSymbol(), getRandomSlotSymbol()];
+
+            // Поочередная остановка барабанов
+            results.forEach((res, idx) => {
+                setTimeout(() => {
+                    clearInterval(intervals[idx]);
+                    reels[idx].classList.remove('spinning-reel');
+                    reels[idx].textContent = res.icon;
+                    haptic('light');
+
+                    // Когда остановился последний барабан
+                    if (idx === 2) {
+                        evaluateSlotResult(results);
+                    }
+                }, 700 + idx * 450);
+            });
+        }
+
+        function evaluateSlotResult(results) {
+            const [s1, s2, s3] = results;
+            let winAmount = 0;
+
+            if (s1.icon === s2.icon && s2.icon === s3.icon) {
+                // 3 одинаковых символа
+                winAmount = currentSlotBet * s1.mult;
+            } else if (s1.icon === s2.icon || s2.icon === s3.icon || s1.icon === s3.icon) {
+                // 2 одинаковых символа
+                winAmount = Math.round(currentSlotBet * 1.5);
+            }
+
+            const statusEl = document.getElementById('slot-status');
+            const machineBox = document.getElementById('slot-machine-box');
+
+            if (winAmount > 0) {
+                haptic('success');
+                changeBalance(winAmount);
+                machineBox.classList.add('win-highlight');
+                statusEl.innerHTML = `<span class="text-sm font-display font-black text-emerald-400">🎉 ВЫИГРЫШ: +${winAmount} 🪙!</span>`;
+                addHistory('🎰 Слоты', currentSlotBet, winAmount, true);
+                showToast(`Выигрыш в слотах: +${winAmount} 🪙!`, 'success');
+            } else {
+                haptic('rigid');
+                statusEl.innerHTML = `<span class="text-xs font-semibold text-slate-400">Не повезло. Попробуйте ещё раз!</span>`;
+                addHistory('🎰 Слоты', currentSlotBet, 0, false);
+            }
+
+            isSlotSpinning = false;
+            document.getElementById('spin-slots-btn').disabled = false;
+        }
+
+        // ==================== 5. ИГРА 2: КОЛЕСО ФОРТУНЫ ====================
+        const WHEEL_SEGMENTS = [
+            { label: 'x0',   mult: 0,   color: '#1e293b', text: '#94a3b8' },
+            { label: 'x2',   mult: 2,   color: '#7e22ce', text: '#ffffff' },
+            { label: 'x0.5', mult: 0.5, color: '#334155', text: '#cbd5e1' },
+            { label: 'x5',   mult: 5,   color: '#d97706', text: '#ffffff' },
+            { label: 'x0',   mult: 0,   color: '#1e293b', text: '#94a3b8' },
+            { label: 'x1.5', mult: 1.5, color: '#0284c7', text: '#ffffff' },
+            { label: 'x10',  mult: 10,  color: '#e11d48', text: '#fde047' },
+            { label: 'x3',   mult: 3,   color: '#059669', text: '#ffffff' }
+        ];
+
+        let currentWheelBet = 50;
+        let wheelAngle = 0;
+        let isWheelSpinning = false;
+
+        function setWheelBet(amount) {
+            if (isWheelSpinning) return;
+            haptic('selection');
+            currentWheelBet = amount;
+            document.getElementById('wheel-bet-label').textContent = `${amount} монет`;
+
+            document.querySelectorAll('.wheel-bet-btn').forEach(btn => {
+                if (parseInt(btn.textContent) === amount) {
+                    btn.className = 'wheel-bet-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400 shadow-md transition';
+                } else {
+                    btn.className = 'wheel-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700 transition';
+                }
+            });
+        }
+
+        function drawWheel() {
+            const canvas = document.getElementById('wheel-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const size = 320;
+            canvas.width = size;
+            canvas.height = size;
+
+            const center = size / 2;
+            const radius = center - 8;
+            const arc = (2 * Math.PI) / WHEEL_SEGMENTS.length;
+
+            ctx.clearRect(0, 0, size, size);
+
+            // Внешнее золотое кольцо
+            ctx.beginPath();
+            ctx.arc(center, center, radius + 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fill();
+
+            WHEEL_SEGMENTS.forEach((seg, i) => {
+                const angle = wheelAngle + i * arc;
+                ctx.beginPath();
+                ctx.moveTo(center, center);
+                ctx.arc(center, center, radius, angle, angle + arc);
+                ctx.closePath();
+                ctx.fillStyle = seg.color;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#0f172a';
+                ctx.stroke();
+
+                // Текст множителя
+                ctx.save();
+                ctx.translate(center, center);
+                ctx.rotate(angle + arc / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = seg.text;
+                ctx.font = '900 18px Montserrat, sans-serif';
+                ctx.fillText(seg.label, radius - 22, 6);
+                ctx.restore();
+            });
+        }
+
+        function spinWheel() {
+            if (isWheelSpinning) return;
+            if (appState.balance < currentWheelBet) {
+                haptic('error');
+                showToast('Недостаточно монет для ставки!', 'error');
+                return;
+            }
+
+            isWheelSpinning = true;
+            haptic('medium');
+            changeBalance(-currentWheelBet);
+            document.getElementById('spin-wheel-btn').disabled = true;
+
+            // Выбираем целевой сектор
+            const targetIndex = Math.floor(Math.random() * WHEEL_SEGMENTS.length);
+            const arc = (2 * Math.PI) / WHEEL_SEGMENTS.length;
+            
+            // Указатель находится сверху (-Math.PI / 2)
+            // Вычисляем угол остановки так, чтобы центр targetIndex совпал с -Math.PI / 2
+            const extraSpins = 5 * 2 * Math.PI;
+            const targetAngle = -Math.PI / 2 - (targetIndex * arc + arc / 2);
+            const currentNormalized = wheelAngle % (2 * Math.PI);
+            let deltaAngle = targetAngle - currentNormalized;
+            if (deltaAngle < 0) deltaAngle += 2 * Math.PI;
+            
+            const totalRotation = extraSpins + deltaAngle;
+            const startAngle = wheelAngle;
+            const duration = 3800;
+            const startTime = performance.now();
+            let lastTickSegment = -1;
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                // Плавное замедление (easeOutQuart)
+                const ease = 1 - Math.pow(1 - progress, 4);
+
+                wheelAngle = startAngle + totalRotation * ease;
+                drawWheel();
+
+                // Вибрация при прохождении секторов
+                const currentSeg = Math.floor(((wheelAngle % (2 * Math.PI)) + 2 * Math.PI) / arc) % WHEEL_SEGMENTS.length;
+                if (currentSeg !== lastTickSegment) {
+                    lastTickSegment = currentSeg;
+                    haptic('light');
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    finishWheelSpin(WHEEL_SEGMENTS[targetIndex]);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function finishWheelSpin(segment) {
+            const winAmount = Math.round(currentWheelBet * segment.mult);
+
+            if (winAmount > 0) {
+                haptic('success');
+                changeBalance(winAmount);
+                addHistory(`🎡 Колесо (${segment.label})`, currentWheelBet, winAmount, true);
+                showToast(`Сектор ${segment.label}! Выигрыш: +${winAmount} 🪙`, 'success');
+            } else {
+                haptic('error');
+                addHistory('🎡 Колесо (x0)', currentWheelBet, 0, false);
+                showToast('Выпал сектор x0. Повезёт в следующий раз!', 'error');
+            }
+
+            isWheelSpinning = false;
+            document.getElementById('spin-wheel-btn').disabled = false;
+        }
+
+        // ==================== 6. ИГРА 3: САПЁР / МИНЫ (MINES) ====================
+        let minesConfig = {
+            count: 3,
+            bet: 50
+        };
+
+        let minesGame = {
+            active: false,
+            board: [], // true = мина, false = кристалл
+            revealed: [],
+            safeOpened: 0,
+            currentMultiplier: 1.0
+        };
+
+        function setMinesCount(cnt) {
+            if (minesGame.active) return;
+            haptic('selection');
+            minesConfig.count = cnt;
+            document.querySelectorAll('.mine-cnt-btn').forEach(btn => {
+                if (parseInt(btn.textContent) === cnt) {
+                    btn.className = 'mine-cnt-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400';
+                } else {
+                    btn.className = 'mine-cnt-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+                }
+            });
+            updateMinesMultiplierPreview();
+        }
+
+        function setMinesBet(amount) {
+            if (minesGame.active) return;
+            haptic('selection');
+            minesConfig.bet = amount;
+            document.querySelectorAll('.mine-bet-btn').forEach(btn => {
+                if (parseInt(btn.textContent) === amount) {
+                    btn.className = 'mine-bet-btn py-2 rounded-xl text-xs font-bold bg-purple-600 text-white border border-purple-400';
+                } else {
+                    btn.className = 'mine-bet-btn py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700';
+                }
+            });
+        }
+
+        // Расчет честного множителя для 25 ячеек
+        function calculateMinesMultiplier(minesCount, openedCount) {
+            if (openedCount === 0) return 1.0;
+            let mult = 0.96; // 4% house edge
+            for (let i = 0; i < openedCount; i++) {
+                mult *= (25 - i) / (25 - minesCount - i);
+            }
+            return parseFloat(mult.toFixed(2));
+        }
+
+        function updateMinesMultiplierPreview() {
+            const currentM = calculateMinesMultiplier(minesConfig.count, minesGame.safeOpened);
+            const nextM = calculateMinesMultiplier(minesConfig.count, minesGame.safeOpened + 1);
+            minesGame.currentMultiplier = currentM;
+
+            document.getElementById('mines-multiplier').textContent = `x${currentM.toFixed(2)}`;
+            document.getElementById('mines-next-mult').textContent = `x${nextM.toFixed(2)}`;
+
+            const cashoutBtn = document.getElementById('mines-cashout-btn');
+            const cashoutAmt = Math.round(minesConfig.bet * currentM);
+            document.getElementById('mines-cashout-amount').textContent = cashoutAmt;
+            cashoutBtn.disabled = minesGame.safeOpened === 0;
+        }
+
+        function renderMinesGrid(revealAll = false) {
+            const gridEl = document.getElementById('mines-grid');
+            gridEl.innerHTML = '';
+
+            for (let i = 0; i < 25; i++) {
+                const btn = document.createElement('button');
+                const isRevealed = minesGame.revealed[i];
+                const isMine = minesGame.board[i];
+
+                btn.className = 'mine-cell rounded-xl flex items-center justify-center text-xl font-bold border transition ';
+
+                if (isRevealed) {
+                    if (isMine) {
+                        btn.className += 'bg-rose-600/90 border-rose-400 shadow-[0_0_15px_rgba(225,29,72,0.7)]';
+                        btn.textContent = '💥';
+                    } else {
+                        btn.className += 'bg-emerald-500/20 border-emerald-400/80 shadow-[0_0_12px_rgba(16,185,129,0.4)]';
+                        btn.textContent = '💎';
+                    }
+                    btn.disabled = true;
+                } else if (revealAll) {
+                    if (isMine) {
+                        btn.className += 'bg-slate-800/80 border-rose-500/40 opacity-75';
+                        btn.textContent = '💣';
+                    } else {
+                        btn.className += 'bg-slate-900/60 border-slate-800 opacity-40';
+                        btn.textContent = '💎';
+                    }
+                    btn.disabled = true;
+                } else {
+                    btn.className += 'bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 shadow-inner';
+                    btn.disabled = !minesGame.active;
+                    btn.onclick = () => clickMineCell(i);
+                }
+
+                gridEl.appendChild(btn);
+            }
+        }
+
+        function startMinesGame() {
+            if (minesGame.active) return;
+            if (appState.balance < minesConfig.bet) {
+                haptic('error');
+                showToast('Недостаточно монет для ставки!', 'error');
+                return;
+            }
+
+            haptic('medium');
+            changeBalance(-minesConfig.bet);
+
+            // Генерируем поле из 25 ячеек и расставляем мины
+            const board = Array(25).fill(false);
+            let placed = 0;
+            while (placed < minesConfig.count) {
+                const idx = Math.floor(Math.random() * 25);
+                if (!board[idx]) {
+                    board[idx] = true;
+                    placed++;
+                }
+            }
+
+            minesGame = {
+                active: true,
+                board: board,
+                revealed: Array(25).fill(false),
+                safeOpened: 0,
+                currentMultiplier: 1.0
+            };
+
+            document.getElementById('mines-controls').classList.add('hidden');
+            document.getElementById('mines-active-controls').classList.remove('hidden');
+
+            updateMinesMultiplierPreview();
+            renderMinesGrid();
+        }
+
+        function clickMineCell(index) {
+            if (!minesGame.active || minesGame.revealed[index]) return;
+
+            minesGame.revealed[index] = true;
+
+            if (minesGame.board[index]) {
+                // Попал на мину!
+                haptic('error');
+                minesGame.active = false;
+                renderMinesGrid(true);
+                addHistory(`💣 Мины (${minesConfig.count})`, minesConfig.bet, 0, false);
+                showToast('💥 БУМ! Вы наткнулись на мину!', 'error');
+                resetMinesControls();
+            } else {
+                // Нашел кристалл!
+                haptic('light');
+                minesGame.safeOpened += 1;
+                updateMinesMultiplierPreview();
+                renderMinesGrid();
+
+                // Если открыты все безопасные ячейки — автоматический выигрыш
+                if (minesGame.safeOpened === 25 - minesConfig.count) {
+                    cashoutMines();
+                }
+            }
+        }
+
+        function cashoutMines() {
+            if (!minesGame.active || minesGame.safeOpened === 0) return;
+
+            haptic('success');
+            minesGame.active = false;
+            const winAmount = Math.round(minesConfig.bet * minesGame.currentMultiplier);
+
+            changeBalance(winAmount);
+            renderMinesGrid(true);
+            addHistory(`💣 Мины (x${minesGame.currentMultiplier})`, minesConfig.bet, winAmount, true);
+            showToast(`💰 Вы забрали выигрыш: +${winAmount} 🪙!`, 'success');
+            resetMinesControls();
+        }
+
+        function resetMinesControls() {
+            document.getElementById('mines-controls').classList.remove('hidden');
+            document.getElementById('mines-active-controls').classList.add('hidden');
+        }
+
+        // ==================== ЗАПУСК ПРИЛОЖЕНИЯ ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            initTelegram();
+            loadState();
+            drawWheel();
+            updateMinesMultiplierPreview();
+            renderMinesGrid();
+        });
+    </script>
+</body>
+</html>
